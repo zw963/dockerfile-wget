@@ -77,7 +77,7 @@ RUN bash -c 'function __wget() { \
     exec 3>&-; \
 }; \
 
-__wget http://zw963.github.io/docker/static_wget_base64 |tail -n +8 |base64 -d > /usr/local/bin/wget; \
+__wget http://raw.githubusercontent.com/zw963/dockerfile-wget/v0.0.1/base64_encoded_static_wget |tail -n +8 |base64 -d > /usr/local/bin/wget; \
 
 if [ -s /usr/local/bin/wget ]; then \
     chmod +x /usr/local/bin/wget; \
