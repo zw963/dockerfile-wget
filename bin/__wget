@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Usage: $: __wget http://some_url, only http is support.
+
+# Notice:
+
+# 1. Binary transfer is not full-support, so use base64 encode before download.
+# 2. Obvious https is not support.
+
+function __wget() {
+    local URL=$1;
+
+    if [ -z "${URL}" ]; then
+        printf "Usage: %s \"URL\" [e.g.: %s http://www.google.com/]" "${FUNCNAME[0]}" "${FUNCNAME[0]}";
+        return 1;
+    fi;
+
+    read proto server path <<<$(echo ${URL//// });
+    local SCHEME=${proto//:*};
+    local PATH=/${path// //};
+    local HOST=${server//:*};
+    local PORT=${server//*:};
+
+    if [[ "$SCHEME" != "http" ]]; then
+        printf "sorry, %s only support http\n" "${FUNCNAME[0]}" >&2;
+        return 1;
+    fi;
+
+    [[ "${HOST}" == "${PORT}" ]] && PORT=80;
+
+    exec 3<>/dev/tcp/${HOST}/${PORT};
+
+    if [ $? -ne 0 ]; then
+        echo "Could not access device /dev/tcp pseudo device." >&2;
+        return 1;
+    fi;
+
+    # Add request header, need following to close connection imediatelly when transfer is finished.
+    local tag="Connection: close";
+    echo -en "GET ${PATH} HTTP/1.1\r\nHost: ${HOST}\r\n${tag}\r\n\r\n" >&3;
+
+    if [ $? -ne 0 ]; then
+        echo "Network is not connected?" >&2;
+        return 1;
+    fi;
+
+    local state=0;
+    local line_number=0;
+
+    while read line; do
+        line_number=$(($line_number + 1));
+
+        case $state in
+            0)
+                echo "$line" >&2;
+                # before reading http response
+                if [ $line_number -eq 1 ]; then
+                    # First line response
+                    if [[ $line =~ ^HTTP/1\.[01][[:space:]]([0-9]{3}).*$ ]]; then
+                        [[ "${BASH_REMATCH[1]}" = "200" ]] && state=1 || return 1;
+                    else
+                        printf "invalid http response from '%s'" "$URL" >&2;
+                        return 1;
+                    fi
+                fi
+                ;;
+            1)
+                # response 200, start to read header
+                # If found "\r\n", read header finished, set status to 2.
+                [[ "$line" == $'\r' ]] && state=2;
+                ;;
+            2)
+                # start read body
+                echo "$line";
+        esac
+    done <&3;
+
+    exec 3>&-;
+};
+
+__wget "$@"
