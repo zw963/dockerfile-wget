@@ -53,39 +53,45 @@ MAINTAINER Billy Zheng(zw963) <vil963@gmail.com>
 
 RUN bash -c 'function __wget() { \
     local URL=$1; \
-    local tag="Connection: close"; \
-    local mark=0; \
-
     read proto server path <<<$(echo ${URL//// }); \
-
-    local DOC=/${path// //}; \
-    local HOST=${server//:*}; \
-    local PORT=${server//*:}; \
-
-    [[ x"${HOST}" == x"${PORT}" ]] && PORT=80; \
-
+    local SCHEME=${proto//:*} PATH=/${path// //} HOST=${server//:*} PORT=${server//*:}; \
+    [[ "${HOST}" == "${PORT}" ]] && PORT=80; \
     exec 3<>/dev/tcp/${HOST}/${PORT}; \
-    echo -en "GET ${DOC} HTTP/1.1\r\nHost: ${HOST}\r\n${tag}\r\n\r\n" >&3; \
-
+    echo -en "GET ${PATH} HTTP/1.1\r\nHost: ${HOST}\r\nConnection: close\r\n\r\n" >&3; \
+    local state=0 line_number=0; \
     while read line; do \
-        [[ $mark -eq 1 ]] && echo $line; \
-        if [[ "${line}" =~ "${tag}" ]]; then \
-            mark=1; \
-        fi; \
+        line_number=$(($line_number + 1)); \
+        case $state in \
+            0) \
+                echo "$line" >&2; \
+                if [ $line_number -eq 1 ]; then \
+                    if [[ $line =~ ^HTTP/1\.[01][[:space:]]([0-9]{3}).*$ ]]; then \
+                        [[ "${BASH_REMATCH[1]}" = "200" ]] && state=1 || return 1; \
+                    else \
+                        printf "invalid http response from '%s'" "$URL" >&2; \
+                        return 1; \
+                    fi; \
+                fi; \
+                ;; \
+            1) \
+                [[ "$line" =~ ^.$ ]] && state=2; \
+                ;; \
+            2) \
+                echo "$line"; \
+        esac \
     done <&3; \
-
     exec 3>&-; \
 }; \
 
-__wget http://raw.githubusercontent.com/zw963/dockerfile-wget/v0.0.1/base64_encoded_static_wget |tail -n +8 |base64 -d > /usr/local/bin/wget; \
+__wget http://202.56.13.13/base64_encoded_static_wget |base64 -d > /usr/local/bin/wget; \
 
 if [ -s /usr/local/bin/wget ]; then \
     chmod +x /usr/local/bin/wget; \
 else \
     echo "Network is not connected?" >&2; \
     exit 1; \
-fi; \
-'
+fi;'
+
 
 CMD ["ruby"]
 ```
