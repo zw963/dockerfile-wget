@@ -131,7 +131,7 @@ this static_wget is got from [minos-static](https://github.com/minos-org/minos-s
 what i does is just:
 
 - download static compiled wget, and pack with ``upx`` (size from 1.5M reduce to 604kb)
-- create ``__wget`` function in Dockrfile, please refer to [this StackExchange answer](https://unix.stackexchange.com/a/83927/148127), and [this](https://unix.stackexchange.com/a/365365/148127), for a complete example, please see [this](github.com/zw963/dockerfile/wget/bin/__wget)
+- create ``__wget`` function in Dockrfile, please refer to [this StackExchange answer](https://unix.stackexchange.com/a/83927/148127), and [this](https://unix.stackexchange.com/a/365365/148127), for a complete example, please see [this](https://github.com/zw963/dockerfile-wget/blob/master/__wget)
 - encode wget binary with base64, because ``__wget`` function not full-suppot binary data transfer.
 - save `base64 encoded static compiled wget` in some place which not need `https`, because ``__wget`` not support.
 - use ``_wget`` function to download wget.
